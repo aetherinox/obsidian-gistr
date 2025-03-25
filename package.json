@@ -86,7 +86,7 @@
         "@stylistic/eslint-plugin-plus": "^2.3.0",
         "electron": "^31.1.0",
         "obsidian": "^1.0.0",
-        "rollup": "^4.18.0",
+        "rollup": "^4.37.0",
         "rollup-plugin-license": "^3.3.1",
         "simple-git": "^3.24.0",
         "tslib": "^2.2.0",
