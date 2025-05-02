@@ -1,25 +1,28 @@
-# ---------------------------------------------------------------------------------------
+# #
 #   @parent     : github workflow
 #   @desc       : runs tests on gistr
 #   @author     : Aetherinox
 #   @url        : https://github.com/Aetherinox
-# ---------------------------------------------------------------------------------------
+# #
 
 name: "📦 Plugin › Test"
 run-name: "📦 Plugin › Test"
 
-# ---------------------------------------------------------------------------------------
+# #
 #   triggers
-# ---------------------------------------------------------------------------------------
+#
+#   cron runtime:
+#       “At 00:00 on Sunday.”
+# #
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 */4 * * *"
+    workflow_dispatch:
+    schedule:
+      - cron: "0 0 * * 0"
 
-# ---------------------------------------------------------------------------------------
+# #
 #   environment variables
-# ---------------------------------------------------------------------------------------
+# #
 
 env:
     PLUGIN_NAME:            gistr
@@ -29,18 +32,17 @@ env:
     BOT_NAME_3:             EuropaServ
     BOT_NAME_DEPENDABOT:    dependabot[bot]
 
-# ---------------------------------------------------------------------------------------
+# #
 #   jobs
-# ---------------------------------------------------------------------------------------
+# #
 
 jobs:
     push-release:
         name: "Push Release"
         runs-on: ubuntu-latest
         permissions:
-          contents: write
+            contents: write
         steps:
-
             - name: "☑️ Checkout"
               uses: actions/checkout@v4
               id: task_release_checkout
@@ -54,27 +56,27 @@ jobs:
                   node-version: "20.x"
                   registry-url: https://npm.pkg.github.com/
 
-            # ---------------------------------------------------------------------------------------
+            # #
             #   Package Version > Set
-            # ---------------------------------------------------------------------------------------
+            # #
 
             - name: "👁️‍🗨️ Package Version › Set"
               id: task_release_package_version_set
               run: echo "PACKAGE_VERSION=$(cat package.json | jq -r '.version')" >> $GITHUB_ENV
 
-            # ---------------------------------------------------------------------------------------
+            # #
             #   Package Version > Get
-            # ---------------------------------------------------------------------------------------
+            # #
 
             - name: "👁️‍🗨️ Package Version › Get"
               id: task_release_package_version_get
               run: |
-                echo "VERSION: ${{ env.PACKAGE_VERSION }}"
+                  echo "VERSION: ${{ env.PACKAGE_VERSION }}"
 
-            # ---------------------------------------------------------------------------------------
+            # #
             #   Dist Releases > Run pretty and lint
             #   no need to run npm run generate here since build does it already
-            # ---------------------------------------------------------------------------------------
+            # #
 
             - name: "🪪 Run Build"
               id: task_release_npm_build
