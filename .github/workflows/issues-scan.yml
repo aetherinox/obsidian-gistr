@@ -1,9 +1,18 @@
 # #
 #   @type               github workflow
 #   @desc               pull request autoscan
-#                         scans all of the files related to a particular pull request
-#                         if the code in the files being submitted contains code that is forbidden,
-#                         a report is generated and posted as a comment in the PR.
+#                           scans all of the files related to a particular pull request
+#                           if the code in the files being submitted contains code that is forbidden,
+#                           a report is generated and posted as a comment in the PR.
+#                       sends notifications to discord using webhooks
+#
+#                       can be tested using act:
+#                           - https://github.com/nektos/act
+#                       command:
+#                           git pull https://github.com/username/repo
+#                           act -W .github/workflows/issues-scan.yml -P ubuntu-latest=catthehacker/ubuntu:full-22.04
+#                           act -W .github/workflows/issues-scan.yml -s TOKEN_CL=XXXXXXXXXX --pull=false
+#
 #   @author             Aetherinox
 #   @url                https://github.com/Aetherinox
 # #
@@ -19,7 +28,6 @@ on:
     pull_request_target:
         branches:
             - main
-            - master
 
 # #
 #   environment variables
@@ -38,10 +46,10 @@ env:
     LABEL_TYPE_DEPENDENCY:          Type ◦ Dependency
     LABEL_TYPE_GITACTION:           Type ◦ Git Action
 
-    BOT_NAME_1:                     AdminServ
-    BOT_NAME_2:                     AdminServX
-    BOT_NAME_3:                     EuropaServ
+    BOT_NAME_1:                     EuropaServ
+    BOT_NAME_2:                     BinaryServ
     BOT_NAME_DEPENDABOT:            dependabot[bot]
+    BOT_NAME_RENOVATE:              renovate[bot]
 
     LABELS_JSON: |
       [
@@ -57,7 +65,7 @@ env:
             { "name": "Status 𐄂 Accepted",            "color": "2e7539", "description": "This pull request has been accepted" },
             { "name": "Status 𐄂 Autoclosed",          "color": "3E0915", "description": "Originally stale and was autoclosed for no activity" },
             { "name": "Status 𐄂 Denied",              "color": "ba4058", "description": "Pull request has been denied" },
-            { "name": "Status 𐄂 Locked",              "color": "550F45", "description": "Automatically locked by AdminServ for a prolonged period of inactivity" },
+            { "name": "Status 𐄂 Locked",              "color": "550F45", "description": "Automatically locked by EuropaServ for a prolonged period of inactivity" },
             { "name": "Status 𐄂 Need Info",           "color": "2E3C4C", "description": "Not enough information to resolve" },
             { "name": "Status 𐄂 No Action",           "color": "030406", "description": "Closed without any action being taken" },
             { "name": "Status 𐄂 Pending",             "color": "984b12", "description": "Pending pull request" },
@@ -115,8 +123,11 @@ jobs:
     #   Job [ Autoscan ]
     # #
 
-    pr-autoscan:
+    job-pr-autoscan:
+        name: 🎫 Issues › Autoscan
+      # runs-on: ubuntu-latest
         runs-on: ubuntu-latest
+        timeout-minutes: 10
         permissions:
             contents: read
             actions: read
@@ -125,107 +136,126 @@ jobs:
         steps:
 
             # #
+            #   Cleanup › Set Env Variables
+            # #
+
+            - name: >-
+                🕛 Get Timestamp
+              id: task_autocheck_set_timestamp
+              run: |
+                  echo "NOW=$(date +'%m-%d-%Y %H:%M:%S')" >> $GITHUB_ENV
+                  echo "NOW_SHORT=$(date +'%m-%d-%Y')" >> $GITHUB_ENV
+                  echo "NOW_LONG=$(date +'%m-%d-%Y %H:%M')" >> $GITHUB_ENV
+                  echo "NOW_DOCKER_LABEL=$(date +'%Y%m%d')" >> $GITHUB_ENV
+
+            # #
             #   action needed if using 'pull_request' and 'issue_comment'
             #   to get the pull request, you would normally use ${{ github.event.number }}
             #   however this isnt available for 'issue_comment'
             # #
 
-              - name: >-
-                    🏷️ Verify Existing Labels
-                id: task_autocheck_labels_verify
-                uses: actions/github-script@v7
-                with:
-                    github-token: ${{ secrets.ADMINSERV_TOKEN_CL || github.token }}
-                    script: |
-                        const labels = JSON.parse( process.env.LABELS_JSON );
-                        for ( const label of labels )
-                        {
-                            try
-                            {
-                                await github.rest.issues.createLabel(
-                                {
-                                    owner:        context.repo.owner,
-                                    repo:         context.repo.repo,
-                                    name:         label.name,
-                                    description:  label.description || '',
-                                    color:        label.color
-                                });
-                            }
-                            catch ( err )
-                            {
-                                if ( err.status === 422 )
-                                {
-                                    console.log( `Label '${label.name}' already exists. Skipping.` );
-                                }
-                                else
-                                {
-                                    console.error( `Error creating label '${label.name}': ${err}` );
-                                }
-                            }
-                        }
+            - name: >-
+                  🏷️ Verify Existing Labels
+              id: task_autocheck_labels_verify
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.ADMINSERV_TOKEN_CL || github.token }}
+                  script: |
+                      const labels = JSON.parse( process.env.LABELS_JSON );
+                      for ( const label of labels )
+                      {
+                          try
+                          {
+                              await github.rest.issues.createLabel(
+                              {
+                                  owner:        context.repo.owner,
+                                  repo:         context.repo.repo,
+                                  name:         label.name,
+                                  description:  label.description || '',
+                                  color:        label.color
+                              });
+                          }
+                          catch ( err )
+                          {
+                              if ( err.status === 422 )
+                              {
+                                  console.log( `Label '${label.name}' already exists. Skipping.` );
+                              }
+                              else
+                              {
+                                  console.error( `Error creating label '${label.name}': ${err}` );
+                              }
+                          }
+                      }
 
             # #
             #   set issue number
             # #
 
-              - name: >-
-                    #️⃣ Issue number › Set
-                uses: actions/github-script@v7
-                id: task_autocheck_issue_num_set
-                with:
-                    github-token: ${{ secrets.ADMINSERV_TOKEN_CL || github.token }}
-                    script: |
-                        if ( context.issue.number )
-                        {
-                            // Return issue number if present
-                            return context.issue.number;
-                        }
-                        else
-                        {
-                            // Otherwise return issue number from commit
-                            return (
-                                await github.rest.repos.listPullRequestsAssociatedWithCommit(
-                                {
+            - name: >-
+                  #️⃣ Issue number › Set
+              uses: actions/github-script@v7
+              id: task_autocheck_issue_num_set
+              with:
+                  github-token: ${{ secrets.ADMINSERV_TOKEN_CL || github.token }}
+                  script: |
+                      if ( context.issue.number )
+                      {
+                          // Return issue number if present
+                          return context.issue.number;
+                      }
+                      else
+                      {
+                          const data = (
+                              await github.rest.repos.listPullRequestsAssociatedWithCommit(
+                              {
                                     commit_sha: context.sha,
                                     owner:      context.repo.owner,
                                     repo:       context.repo.repo,
-                                })
-                            ).data[ 0 ].number;
-                        }
-                    result-encoding: string
+                              })
+                          ).data[0];
+
+                          if (data) {
+                              return data.number;
+                          } else {
+                              return '32';
+                          }
+                      }
+                  result-encoding: string
 
             # #
             #   print issue number
             # #
 
-              - name: >-
-                    #️⃣ Issue number › Print
-                id: task_autocheck_issue_num_get
-                run: |
-                    echo '${{ steps.task_autocheck_issue_num_set.outputs.result }}'
+            - name: >-
+                  #️⃣ Issue number › Print
+              id: task_autocheck_issue_num_get
+              run: |
+                  echo '${{ steps.task_autocheck_issue_num_set.outputs.result }}'
 
             # #
             #   checkout
             # #
 
-              - name: >-
-                    ☑️ Checkout
-                id: task_autoscan_checkout
-                uses: actions/checkout@v4
-                if: |
-                    ( github.event_name == 'pull_request_target' ) || ( github.event_name == 'pull_request' ) || ( github.event_name == 'issue_comment' && contains( github.event.comment.html_url, '/pull/' ) && contains( github.event.comment.body, '/rescan' ) )
-                with:
-                    fetch-depth: 0
-                    ref: "refs/pull/${{ steps.task_autocheck_issue_num_set.outputs.result }}/merge"
+            - name: >-
+                  ☑️ Checkout
+              id: task_autoscan_checkout
+              uses: actions/checkout@v4
+              if: |
+                  ( github.event_name == 'pull_request_target' ) || ( github.event_name == 'pull_request' ) || ( github.event_name == 'issue_comment' && contains( github.event.comment.html_url, '/pull/' ) && contains( github.event.comment.body, '/rescan' ) )
+              with:
+                  token: ${{ secrets.ADMINSERV_TOKEN_CL || github.token }}
+                  fetch-depth: 0
+                  ref: "refs/pull/${{ steps.task_autocheck_issue_num_set.outputs.result }}/merge"
 
             # #
             #   nodejs
             # #
 
-              - name: >-
-                    ⚙️ Setup Node
-                id: task_autocheck_nodejs
-                uses: actions/setup-node@v4
+            - name: >-
+                  ⚙️ Setup Node
+              id: task_autocheck_nodejs
+              uses: actions/setup-node@v4
 
             # #
             #     get list of changed files
@@ -236,553 +266,793 @@ jobs:
             #     GitHub action.
             # #
 
+<<<<<<< Updated upstream
               - name: >-
                     📄 Get changed files
                 id: task_autocheck_changed_files_get
                 uses: tj-actions/changed-files@v46
                 with:
                     separator: ","
+=======
+            - name: >-
+                  📄 Get changed files
+              id: task_autocheck_changed_files_get
+              uses: tj-actions/changed-files@v46
+              with:
+                  separator: ","
+>>>>>>> Stashed changes
 
             # #
             #   list of changed files
             # #
 
-              - name: >-
-                    📄 List all added files
-                id: task_autocheck_added_files_get
-                run: |
-                    for file in ${CHANGED_FILES}; do
-                        echo "$file was changed"
-                    done
-                env:
-                    ADDED_FILES:      ${{ steps.task_autocheck_changed_files_get.outputs.added_files }}
-                    MODIFIED_FILES:   ${{ steps.task_autocheck_changed_files_get.outputs.modified_files }}
-                    CHANGED_FILES:    ${{ steps.task_autocheck_changed_files_get.outputs.all_changed_files }}
-                    COUNT_ADDED:      ${{ steps.task_autocheck_changed_files_get.outputs.added_files_count }}
-                    COUNT_MODIFIED:   ${{ steps.task_autocheck_changed_files_get.outputs.modified_files_count }}
-                    COUNT_DELETED:    ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }}
-                    COUNT_RENAMED:    ${{ steps.task_autocheck_changed_files_get.outputs.renamed_files_count }}
-                    COUNT_COPIED:     ${{ steps.task_autocheck_changed_files_get.outputs.copied_files_count }}
+            - name: >-
+                  📄 List all added files
+              id: task_autocheck_added_files_get
+              run: |
+                  for file in ${CHANGED_FILES}; do
+                      echo "$file was changed"
+                  done
+              env:
+                  ADDED_FILES:      ${{ steps.task_autocheck_changed_files_get.outputs.added_files }}
+                  MODIFIED_FILES:   ${{ steps.task_autocheck_changed_files_get.outputs.modified_files }}
+                  CHANGED_FILES:    ${{ steps.task_autocheck_changed_files_get.outputs.all_changed_files }}
+                  COUNT_ADDED:      ${{ steps.task_autocheck_changed_files_get.outputs.added_files_count }}
+                  COUNT_MODIFIED:   ${{ steps.task_autocheck_changed_files_get.outputs.modified_files_count }}
+                  COUNT_DELETED:    ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }}
+                  COUNT_RENAMED:    ${{ steps.task_autocheck_changed_files_get.outputs.renamed_files_count }}
+                  COUNT_COPIED:     ${{ steps.task_autocheck_changed_files_get.outputs.copied_files_count }}
 
             # #
             #   List directories
             # #
 
-              - name: >-
-                    📂 List Directories
-                id: task_autocheck_dirs_list
-                run: |
-                    ls
+            - name: >-
+                  📂 List Directories
+              id: task_autocheck_dirs_list
+              run: |
+                  ls
 
             # #
             #   Run autocheck
             # #
 
-              - name: >-
-                    ☑️ Run Autocheck
-                id: task_autocheck_run
-                uses: actions/github-script@v7
-                with:
-                    github-token: ${{ secrets.ADMINSERV_TOKEN_CL || github.token }}
-                    script: |
-                        const fs                = require( 'fs' );
-                        const escape_html       = ( unsafe ) => unsafe.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' ).replace( /'/g, '&#039;' );
-                        const labels            = [];
-
-                        const files_List        = `${{ steps.task_autocheck_changed_files_get.outputs.all_changed_files }}` || ''
-                        const files_Array       = files_List.split(',')
-                        const branch_ref        = `${ context.payload.pull_request.head.ref }`
-
-                        let message             = [ "\n<br />\n" ]
-                        message.push            ( "## Automatic Self-Check - #" + context.issue.number + "\n" );
-                        message.push            ( `The details of our automated scan for your pull request are listed below. If our scan detected errors, they must be corrected before this pull request will be advanced to the review stage:\n` );
-                        message.push            ( "\n<br />\n\n---\n\n<br />\n\n" );
-                        message.push            ( "### About\nThis pull request includes the following information:" );
-
-                        let bHasError           = false;
-                        let bHasWarning         = false;
-
-                        let date                = new Date( `${ context.payload.pull_request.created_at }` );
-                        date.toISOString( )
-
-                        const actor             = '${{ github.actor }}';
-
-                        const dateTimeformat = ( date ) =>
-                        {
-                            let month           = date.getMonth( ) + 1;
-                            month               = month.toString( ).padStart( 2, '0' );
-                            let day             = date.getDate( ).toString( ).padStart( 2, '0' );
-                            let year            = date.getFullYear( ).toString( ).padStart( 2, '0' );
-
-                            let hours           = date.getHours();
-                            let minutes         = date.getMinutes();
-                            let x               = hours >= 12 ? 'PM' : 'AM';
-                            hours               = hours % 12;
-                            hours               = hours ? hours : 12;
-                            minutes             = minutes.toString( ).padStart( 2, '0' );
-
-                            let mergeTime       = month + '.' + day + '.' + year + ' ' + hours + ':' + minutes + ' ' + x;
-
-                            return mergeTime;
-                        }
-
-                        let date_created        = dateTimeformat( date ) + " UTC";
-
-                        /*
-                            context.payload.pull_request.base.repo.owner.login
-                        */
-
-                        let md_table =
-                        `
-                        | Category | Value |
-                        | --- | --- |
-                        | Title | [ ` + context.payload.pull_request.title + ` ](https://github.com/` + context.repo.owner + `/` + context.repo.repo + `/pull/` + context.payload.pull_request.number + `) |
-                        | Created | [ ` + date_created + ` ](https://worldtimebuddy.com) |
-                        | ID | ` + context.payload.pull_request.html_url + ` |
-                        | Author | [ ` + context.payload.pull_request.user.login + ` ](https://github.com/` + context.repo.owner + `/) |
-                        | Repo | [ ` + context.repo.repo + ` ](https://github.com/` + context.repo.owner + `/` + context.repo.repo + `) |
-                        | Branch | [ ` + context.payload.pull_request.head.ref + `](https://github.com/` + context.repo.owner + `/` + context.repo.repo + `/tree/` + context.payload.pull_request.head.ref + `) ⇁ [ ` + context.payload.pull_request.base.ref + `](https://github.com/` + context.repo.owner + `/` + context.repo.repo + `/tree/` + context.payload.pull_request.base.ref + `) |
-                        | Added Files | ${{ steps.task_autocheck_changed_files_get.outputs.added_files_count }} |
-                        | Modified Files | ${{ steps.task_autocheck_changed_files_get.outputs.all_modified_files_count }} |
-                        | Renamed Files | ${{ steps.task_autocheck_changed_files_get.outputs.renamed_files_count }} |
-                        | Copied Files | ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }} |
-                        | Deleted Files | ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }} |
-                        `;
-
-                        message.push        ( md_table );
-
-                        let error_Generic = "\n" +
-                        "- `MyPlugin`\n" +
-                        "- `MyPluginSettings`\n" +
-                        "- `SampleSettings`\n" +
-                        "- `SampleSettingTab`\n" +
-                        "- `SampleModal`\n"
-
-                        let warn_BadWords = "\n" +
-                        "- `General`\n" +
-                        "- `Settings`\n"
-
-                        /*
-                            Loop files
-                        */
-
-                        const files_skipped = [];
-
-                        /*
-                            List of files to skip check
-                            Entries are CASE sensitive
-                            For folders, append / at the end of the parent directory
-                        */
-
-                        const type_dependency =
-                        [
-                            "dependabot/npm_and_yarn"
-                        ];
-
-                        const type_gitaction =
-                        [
-                            "dependabot/github_actions"
-                        ];
-
-                        const files_skipList =
-                        [
-                            ".github",
-                            ".gitea",
-                            ".gitignore",
-                            "LICENSE",
-                            ".md",
-                            ".yml",
-                            "plugins.json",
-                            "package.json",
-                            "package-lock.json",
-                            "rollup.config.js",
-                            "index.js",
-                            "gistr.js",
-                            "Docs/",
-                            "tests/"
-                        ];
-
-                        for ( const file of files_Array )
-                        {
-
-                            const errors      = [];
-                            const addError    = ( error ) =>
-                            {
-                                errors.push   ( `:x: ${error}` );
-                                console.log   ( 'Found Issues: ' + error );
-
-                                bHasError     = true;
-                            };
-
-                            const warnings    = [];
-                            const addWarning  = ( warning ) =>
-                            {
-                                warnings.push ( `:warning: ${warning}` );
-                                console.log   ( 'Found Warnings: ' + warning );
-
-                                bHasWarning   = true;
-                            }
-
-                            /*
-                                Regex Searches
-                            */
-
-                            const file_current                  = file;
-                            const filesData                     = fs.readFileSync( file_current, 'utf8' );
-                            const bContainsStyle                = /([A-Za-z]+\.style\.[A-Za-z]+)/gi.test( filesData );
-                            const bFuncFetch                    = /(fetch)\((.*)\)(\[([^\]]*)\])?/gim.test( filesData );
-                            const bVar                          = /^(?:var|)\s(\w+)\s*=\s*/gm.test( filesData );
-                            const bLookBehind                   = /\(\?<[=!].*?\)/gmi.test( filesData );
-                            const bMarkdownHtmlNode             = /new\s+NodeHtmlMarkdown/gmi.test( filesData );
-                            const bAsTFile                      = /as\s+TFile/g.test( filesData );
-                            const bAsTFolder                    = /as\s+TFolder/g.test( filesData );
-                            const bAsAny                        = /\((.*? as Any\s*)\)/gi.test( filesData );
-                            const bInnerHTML                    = /^\s?.*[a-zA-Z0-9_]+\.innerHTML*\s?.*$/gm.test( filesData );
-                            const bOuterHTML                    = /^\s?.*[a-zA-Z0-9_]+\.outerHTML*\s?.*$/gm.test( filesData );
-                        //  const bFuncConsoleLog               = /(console.log)\((.*)\)(\[([^\]]*)\])?/gim.test( filesData );
-                            const bFuncSetTimeout               = /(setTimeout)\((.*)\)(\[([^\]]*)\])?/gim.test( filesData );
-                            const bFuncFS_Chk1                  = /(require)\s?\((\s?(?:'|")fs(?:'|"))\s?\)?/gim.test( filesData );
-                            const bFuncFS_Chk2                  = /from\s+(?:'|")fs(?:'|")\s?/gim.test( filesData );
-                            const bFuncFS_ExistsSync            = /(fs.existsSync)\((.*)\)(\[([^\]]*)\])?/gm.test( filesData );
-                            const bFuncFS_MkdirSync             = /(fs.mkdirSync)\((.*)\)(\[([^\]]*)\])?/gm.test( filesData );
-                            const bFoundBadWord                 = /(?:'|").*(Settings|General).*(?:'|")?/gmi.test( filesData );
-                            const bContainsGeneric              = /(?:^|(?<= ))(MyPlugin|MyPluginSettings|SampleSettings|SampleSettingTab|SampleModal|Sample Plugin|my-plugin)(?:(?= )|$)/gim.test( filesData );
-                            const check_depGetUnpinnedLeaf      = "app.workspace.getUnpinnedLeaf"
-
-                            const bFileSkip                     = files_skipList.some( s => s.includes( file_current ) || file_current.includes( s ) );
-
-                            if ( bFileSkip == true )
-                            {
-                                files_skipped.push( file_current );
-                                continue;
-                            }
-
-                            /*
-                                Header
-                            */
-
-                            message.push        ( "\n<br />\n\n---\n\n<br />\n" );
-                            message.push        ( "### 📄 " + file_current + "\n" );
-                            message             = message.concat( warnings );
-
-                            /*
-                                Skip File
-
-                                all contents in the array below will be skipped.
-
-                                E.g:    any file which resides in the .github folder will be skipped.
-                                        any file which ends in .yml will be skipped.
-                            */
-
-                            /*
-                                ( Deprecated ) app.workspace.getUnpinnedLeaf
-
-                                @usage  : obsidian.md
-                            */
-
-                            /*
-                            if ( filesData.toLowerCase( ).includes( check_depGetUnpinnedLeaf.toLowerCase( ) ) )
-                            {
-                                addError( "This function is deprecated, use `this.app.workspace.getLeaf( false )` instead" );
-                            }
-                            */
-
-                            /*
-                                Using inline style
-                            */
-
-                            if ( bContainsStyle == true )
-                            {
-                                addError( "Avoid assigning `inline styles` via JavaScript or in HTML. Move these styles to CSS so that they are adaptable by themes and other plugins." );
-                            }
-
-                            /*
-                                Using fetch
-                            */
-
-                            if ( bFuncFetch == true )
-                            {
-                                addError( "Do not handle http data with `fetch( )`. Use the Obsidian API -> `requestUrl` method instead, which will make sure that network requests work on every platform." );
-                            }
-
-                            /*
-                                Using var
-                            */
-
-                            if ( bVar == true )
-                            {
-                                addError( "Change all instances of `var` to **const** or **let**. var has function-level scope, and leads to bugs." );
-                            }
-
-                            /*
-                                Using lookbehind
-                            */
-
-                            if ( bLookBehind == true )
-                            {
-                                addError( "Lookbehinds are not supported in iOS < 16.4" );
-                            }
-
-                            /*
-                                Using HTML Node
-                            */
-
-                            if ( bMarkdownHtmlNode == true )
-                            {
-                                addError( "Do not use `NodeHtmlMarkdown`. Use Obsidian API -> `htmlToMarkdown` instead." );
-                            }
-
-                            /*
-                                As TFile
-                            */
-
-                            if ( bAsTFile == true )
-                            {
-                                addError( "Do not cast `as TFile`, use `instanceof` instead to check if the item is actually a file / folder" );
-                            }
-
-                            /*
-                                As TFolder
-                            */
-
-                            if ( bAsTFolder == true )
-                            {
-                                addError( "Do not cast `as TFolder`, use `instanceof` instead to check if the item is actually a file / folder" );
-                            }
-
-                            /*
-                                Casting to Any
-                            */
-
-                            if ( bAsAny == true )
-                            {
-                                addError( "Do not cast to `Any`" );
-                            }
-
-                            /*
-                                innerHTML
-                            */
-
-                            if ( bInnerHTML == true )
-                            {
-                                addError( `Using \`innerHTML\` is a security risk.` );
-                            }
-
-                            /*
-                                outerHTML
-                            */
-
-                            if ( bOuterHTML == true )
-                            {
-                                addError( `Using \`outerHTML\` is a security risk.` );
-                            }
-
-                            /*
-                                setTimeout
-                            */
-
-                            if ( bFuncSetTimeout == true )
-                            {
-                                addError( "Do not utilize `setTimeout`, utilize Obsidian API -> `sleep`. E.g: `await sleep( X )`" );
-                            }
-
-                            /*
-                                require("fs")
-                            */
-
-                            if ( bFuncFS_Chk1 == true || bFuncFS_Chk2 == true  )
-                            {
-                                addError( "`fs` import only available from Node.js runtime, this will throw errors for users running on mobile" );
-                            }
-
-                            /*
-                                require("fs") / fs.existsSync
-                            */
-
-                            if ( bFuncFS_ExistsSync == true  )
-                            {
-                                addError( "`fs` import only available from Node.js runtime, this will throw errors for users running on mobile." );
-                            }
-
-                            /*
-                                require("fs") / fs.mkdirSync
-                            */
-
-                            if ( bFuncFS_MkdirSync == true  )
-                            {
-                                addError( "`fs` import only available from Node.js runtime, this will throw errors for users running on mobile." );
-                            }
-
-                            /*
-                                Generic Calls
-                            */
-
-                            if ( bContainsGeneric == true )
-                            {
-                                addError( "Rename sample classes to something that makes sense. You are not allowed to have names such as: " + error_Generic );
-                            }
-
-                            /*
-                                console.log found
-                            */
-
-                            /*
-                            if ( bFuncConsoleLog == true )
-                            {
-                                addWarning( "Avoid unnecessary logging or ensure logging only occurs in development environment." );
-                            }
-                            */
-
-                            /*
-                                Bad words found
-                            */
-
-                            if ( bFoundBadWord == true && file != "package.json" && file != "manifest.json" )
-                            {
-                                addWarning( "A restricted word was found in your code. Generic words are not allowed in strings such as: " + warn_BadWords );
-                            }
-
-                            if ( errors.length > 0 || warnings.length > 0 )
-                            {
-
-                                /*
-                                    Errors
-                                */
-
-                                if ( errors.length > 0 )
-                                {
-                                    message.push    ( "\n\n\n> [!CAUTION]\n> Errors must be fixed prior to a pull request being reviewed and accepted.<br />The file `" + file + "` contains the following errors:\n\n<br>\n\n" );
-                                    message         = message.concat( errors );
-                                }
-
-                                /*
-                                    Warnings
-                                */
-
-                                if ( warnings.length > 0 )
-                                {
-                                    if ( errors.length > 0 )
-                                    {
-                                        message.push    ( "\n<br />\n<br />\n" )
-                                    }
-                                    message.push    ( "\n\n\n> [!WARNING]\n> Warnings are suggestions that do not require fixing, but are recommended before this pull request is reviewed and accepted.<br />The file `" + file + "` contains the following warnings:\n\n<br>\n\n" );
-                                    message         = message.concat( warnings );
-                                }
-                            }
-                            else
-                            {
-                                message.push    ( "\n\n\n> [!NOTE]\n> The file `" + file + "` contains no errors\n\n<br>\n\n" );
-                            }
-                        }
-
-                        if ( files_skipped.length > 0 )
-                        {
-                            message.push        ( "\n<br />\n\n---\n<br />\n" );
-                            message.push        ( "### ❌ Skipped Files\n" );
-
-                            message.push    ( "\n\n\n> [!TIP]\n> The following file(s) have been skipped:\n\n<br>\n\n" );
-
-                            for ( const file_skipped of files_skipped )
-                            {
-                                message.push    ( "- " + file_skipped );
-                            }
-                        }
-
-                        /*
-                            footer
-                        */
-
-                        message.push    ( "\n<br />\n\n---\n<br />\n" );
-                        message.push    ( `<sup>This check was done automatically. Do <b>NOT</b> open a new PR for re-validation. Instead, to trigger this check again, make a change to your PR and wait a few minutes, or close and re-open it.</sup>` );
-
-                        /*
-                            Has Errors
-                        */
-
-                        if ( bHasError == true )
-                        {
-                            labels.push( "${{ env.LABEL_CHECK_STATUS_FAILED }}" );
-                            core.setFailed( "Pull Request Failed Autocheck: " + context.issue.number + ": " + context.payload.pull_request.title + "." );
-                        }
-
-                        /*
-                            No Errors
-                        */
-
-                        if ( bHasError == false )
-                        {
-
-                            /*
-                                change pr title
-                            */
-
-                            const pr_title          = `${ context.payload.pull_request.title }`;
-                            const pr_title_append   = `PR ${ context.issue.number }:`;
-
-                            if ( !pr_title.startsWith( pr_title_append ) )
-                            {
-                                await github.rest.pulls.update(
-                                {
-                                    owner:        context.repo.owner,
-                                    repo:         context.repo.repo,
-                                    pull_number:  context.issue.number,
-                                    title:        `${ pr_title_append } ${ context.payload.pull_request.title }`
-                                } );
-                            }
-
-                            if ( !context.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_CHANGES_REQ }}" ).length > 0 )
-                                labels.push( "${{ env.LABEL_CHECK_REVIEW_READY }}" );
-                        }
-
-                        /*
-                            Determine Labels
-                        */
-
-                        const bGitaction    = type_gitaction.some( s => s.includes( branch_ref ) || branch_ref.includes( s ) );
-                        const bDependency   = type_dependency.some( s => s.includes( branch_ref ) || branch_ref.includes( s ) );
-
-                        if ( actor ==  "${{ env.BOT_NAME_DEPENDABOT }}" && bDependency )
-                            labels.push( "${{ env.LABEL_TYPE_DEPENDENCY }}" );
-                        else if ( actor ==  "${{ env.BOT_NAME_DEPENDABOT }}" && bGitaction )
-                            labels.push( "${{ env.LABEL_TYPE_GITACTION }}" );
-
-                        if ( context.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_CHANGES_REQ }}" ).length > 0 )
-                            labels.push( "${{ env.LABEL_CHECK_CHANGES_REQ }}" );
-
-                        if (context.payload.pull_request.labels.filter(label => label.name === "${{ env.LABEL_CHECK_REBASE_REQ }}" ).length > 0 )
-                            labels.push( "${{ env.LABEL_CHECK_REBASE_REQ }}" );
-
-                        if ( context.payload.pull_request.labels.filter(label => label.name === "${{ env.LABEL_CHECK_SECURITY_ERR }}" ).length > 0 )
-                            labels.push( "${{ env.LABEL_CHECK_SECURITY_ERR }}" );
-
-                        if (context.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_STATUS_CHGMADE }}" ).length > 0 )
-                            labels.push( "${{ env.LABEL_CHECK_STATUS_CHGMADE }}" );
-
-                        if ( context.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_SCAN_SKIPPED }}" ).length > 0 )
-                            labels.push( "${{ env.LABEL_CHECK_SCAN_SKIPPED }}" );
-
-                        labels.push( "${{ env.LABEL_TYPE_PR }}" );
-
-                        /*
-                            Set Label
-                        */
-
-                        await github.rest.issues.setLabels(
-                        {
-                            issue_number:   context.issue.number,
-                            owner:          context.repo.owner,
-                            repo:           context.repo.repo,
-                            labels,
-                        } );
-
-                        /*
-                            Create Comment
-                        */
-
-                        await github.rest.issues.createComment(
-                        {
-                            issue_number:   context.issue.number,
-                            owner:          context.repo.owner,
-                            repo:           context.repo.repo,
-                            body:           message.join('\n'),
-                        } );
+            - name: >-
+                  ☑️ Run Autocheck
+              id: task_autocheck_run
+              uses: actions/github-script@v7
+              with:
+                  github-token: ${{ secrets.ADMINSERV_TOKEN_CL }}
+                  script: |
+                      console.log('Running Autoscan')
+                      console.log(JSON.stringify(context, null, 4));
+                      console.log(JSON.stringify(github, null, 4));
+                      let ct = context;
+
+                        /*  #
+                        #    Example PR used for local act testing
+                        #    Uncomment to use in local env
+                        #
+                        #       can be tested using act:
+                        #           - https://github.com/nektos/act
+                        #       command:
+                        #           git pull https://github.com/username/repo
+                        #           act -W .github/workflows/issues-scan.yml -P ubuntu-latest=catthehacker/ubuntu:full-22.04
+                        #           act -W .github/workflows/issues-scan.yml -s TOKEN_CL=XXXXXXXXXX --pull=false
+                        #  */
+
+                      /*
+                      ct = {
+                            "issue": {
+                                "number": 32
+                            },
+                            "repo": {
+                                "owner": "TheBinaryNinja",
+                                "repo": "TVApp2"
+                            },
+                            "payload": {
+                                "action": "synchronize",
+                                "after": "f087c5bea8800f41018ef328463531ea247547ef",
+                                "before": "a8bdd791b80b2fbb78169234690ccb61b9d014f1",
+                                "number": 32,
+                                "organization": {
+                                    "avatar_url": "https://avatars.githubusercontent.com/u/200161462?v=4",
+                                    "events_url": "https://api.github.com/orgs/TheBinaryNinja/events",
+                                    "hooks_url": "https://api.github.com/orgs/TheBinaryNinja/hooks",
+                                    "issues_url": "https://api.github.com/orgs/TheBinaryNinja/issues",
+                                    "login": "TheBinaryNinja",
+                                    "members_url": "https://api.github.com/orgs/TheBinaryNinja/members{/member}",
+                                    "public_members_url": "https://api.github.com/orgs/TheBinaryNinja/public_members{/member}",
+                                    "repos_url": "https://api.github.com/orgs/TheBinaryNinja/repos",
+                                    "url": "https://api.github.com/orgs/TheBinaryNinja"
+                                },
+                                "pull_request": {
+                                    "created_at": "2025-03-17T23:32:22Z",
+                                    "updated_at": "2025-03-17T23:32:22Z",
+                                    "url": "https://api.github.com/repos/TheBinaryNinja/tvapp2",
+                                    "title": "Test PR Workflow",
+                                    "head": {
+                                        "ref": "main"
+                                    },
+                                    "base": {
+                                        "ref": "main"
+                                    },
+                                    "user": {
+                                        "login": "Aetherinox"
+                                    },
+                                    "labels": [
+                                      {
+                                          "color": "146b4a",
+                                          "default": false,
+                                          "description": "Ready to be reviewed",
+                                          "id": 7821944832,
+                                          "name": "AC › Passed",
+                                          "node_id": "LA_kwDONW-GkM8AAAAB0jloAA",
+                                          "url": "https://api.github.com/repos/TheBinaryNinja/tvapp2/labels/AC%20%E2%80%BA%20Passed"
+                                      },
+                                      {
+                                          "color": "8F1784",
+                                          "default": false,
+                                          "description": "Normal pull request",
+                                          "id": 7821944963,
+                                          "name": "Type ◦ Pull Request",
+                                          "node_id": "LA_kwDONW-GkM8AAAAB0jlogw",
+                                          "url": "https://api.github.com/repos/TheBinaryNinja/tvapp2/labels/Type%20%E2%97%A6%20Pull%20Request"
+                                      }
+                                  ]
+                                },
+                            },
+                            "eventName": "pull_request_target",
+                            "sha": "c938f7a21247f69b29cf352d0c6890a63f260d47",
+                            "ref": "refs/heads/main",
+                            "workflow": "🎫 Issues › Scan",
+                            "action": "task_autocheck_run",
+                            "actor": "renovate[bot]",
+                            "job": "job-pr-autoscan",
+                            "runNumber": 45,
+                            "runId": 13911964505,
+                            "apiUrl": "https://api.github.com",
+                            "serverUrl": "https://github.com",
+                            "graphqlUrl": "https://api.github.com/graphql"
+                      }
+                      */
+
+                      /*  #
+                      #    if local env ct isn't used, set ct to context for production
+                      #  */
+
+                      if (!ct) {
+                        ct = context;
+                      }
+
+                      const fs                = require( 'fs' );
+                      const escape_html       = ( unsafe ) => unsafe.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' ).replace( /'/g, '&#039;' );
+                      const labels            = [];
+
+                      /*  #
+                       #   Get existing labels and add to list
+                       #  */
+
+                      const labelsExisting = await github.rest.issues.listLabelsOnIssue({
+                          issue_number: ct.issue.number,
+                          owner: ct.repo.owner,
+                          repo: ct.repo.repo
+                      })
+
+                      labelsExisting.data.forEach(({ name }) => {
+                          labels.push(name);
+                      });
+
+                      const files_List        = `${{ steps.task_autocheck_changed_files_get.outputs.all_changed_files }}` || ''
+                      const files_Array       = files_List.split(',')
+                      const branch_ref        = `${ ct.payload.pull_request.head.ref }`
+
+                      let message             = [ "\n<br />\n" ]
+                      message.push            ( "## Automatic Self-Check - #" + ct.issue.number + "\n" );
+                      message.push            ( `The details of our automated scan for your pull request are listed below. If our scan detected errors, they must be corrected before this pull request will be advanced to the review stage:\n` );
+                      message.push            ( "\n<br />\n\n---\n\n<br />\n\n" );
+                      message.push            ( "### About\nThis pull request includes the following information:" );
+
+                      let bHasError           = false;
+                      let bHasWarning         = false;
+
+                      let date                = new Date( `${ ct.payload.pull_request.created_at }` );
+                      date.toISOString( )
+
+                      const actor             = '${{ github.actor }}';
+
+                      const dateTimeformat = ( date ) =>
+                      {
+                          let month           = date.getMonth( ) + 1;
+                          month               = month.toString( ).padStart( 2, '0' );
+                          let day             = date.getDate( ).toString( ).padStart( 2, '0' );
+                          let year            = date.getFullYear( ).toString( ).padStart( 2, '0' );
+
+                          let hours           = date.getHours();
+                          let minutes         = date.getMinutes();
+                          let x               = hours >= 12 ? 'PM' : 'AM';
+                          hours               = hours % 12;
+                          hours               = hours ? hours : 12;
+                          minutes             = minutes.toString( ).padStart( 2, '0' );
+
+                          let mergeTime       = month + '.' + day + '.' + year + ' ' + hours + ':' + minutes + ' ' + x;
+
+                          return mergeTime;
+                      }
+
+                      let date_created        = dateTimeformat( date ) + " UTC";
+
+                      /*  #
+                       #   ct.payload.pull_request.base.repo.owner.login
+                       #  */
+
+                      let md_table =
+                      `
+                      | Category | Value |
+                      | --- | --- |
+                      | Title | [ ` + ct.payload.pull_request.title + ` ](https://github.com/` + ct.repo.owner + `/` + ct.repo.repo + `/pull/` + ct.payload.pull_request.number + `) |
+                      | Created | [ ` + date_created + ` ](https://worldtimebuddy.com) |
+                      | ID | ` + ct.payload.pull_request.html_url + ` |
+                      | Author | [ ` + ct.payload.pull_request.user.login + ` ](https://github.com/` + ct.repo.owner + `/) |
+                      | Repo | [ ` + ct.repo.repo + ` ](https://github.com/` + ct.repo.owner + `/` + ct.repo.repo + `) |
+                      | Branch | [ ` + ct.payload.pull_request.head.ref + `](https://github.com/` + ct.repo.owner + `/` + ct.repo.repo + `/tree/` + ct.payload.pull_request.head.ref + `) ⇁ [ ` + ct.payload.pull_request.base.ref + `](https://github.com/` + ct.repo.owner + `/` + ct.repo.repo + `/tree/` + ct.payload.pull_request.base.ref + `) |
+                      | Added Files | ${{ steps.task_autocheck_changed_files_get.outputs.added_files_count }} |
+                      | Modified Files | ${{ steps.task_autocheck_changed_files_get.outputs.all_modified_files_count }} |
+                      | Renamed Files | ${{ steps.task_autocheck_changed_files_get.outputs.renamed_files_count }} |
+                      | Copied Files | ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }} |
+                      | Deleted Files | ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }} |
+                      `;
+
+                      message.push        ( md_table );
+
+                      let error_Generic = "\n" +
+                      "- `MyPlugin`\n" +
+                      "- `MyPluginSettings`\n" +
+                      "- `SampleSettings`\n" +
+                      "- `SampleSettingTab`\n" +
+                      "- `SampleModal`\n"
+
+                      let warn_BadWords = "\n" +
+                      "- `General`\n" +
+                      "- `Settings`\n"
+
+                      /*
+                          Loop files
+                      */
+
+                      const files_skipped = [];
+
+                      /*
+                          List of files to skip check
+                          Entries are CASE sensitive
+                          For folders, append / at the end of the parent directory
+                      */
+
+                      const type_dependency =
+                      [
+                          "dependabot/npm_and_yarn",
+                          "renovate/github_actions"
+                      ];
+
+                      const type_gitaction =
+                      [
+                          "dependabot/github_actions",
+                          "renovate/github_actions"
+                      ];
+
+                      const files_skipList =
+                      [
+                          ".github",
+                          ".gitea",
+                          ".gitignore",
+                          "LICENSE",
+                          ".md",
+                          ".yml",
+                          "plugins.json",
+                          "package.json",
+                          "package-lock.json",
+                          "rollup.config.js",
+                          "index.js",
+                          "gistr.js",
+                          "Docs/",
+                          "tests/"
+                      ];
+
+                      for ( const file of files_Array )
+                      {
+
+                          const errors      = [];
+                          const addError    = ( error ) =>
+                          {
+                              errors.push   ( `:x: ${error}` );
+                              console.log   ( 'Found Issues: ' + error );
+
+                              bHasError     = true;
+                          };
+
+                          const warnings    = [];
+                          const addWarning  = ( warning ) =>
+                          {
+                              warnings.push ( `:warning: ${warning}` );
+                              console.log   ( 'Found Warnings: ' + warning );
+
+                              bHasWarning   = true;
+                          }
+
+                          /*
+                              Regex Searches
+                          */
+
+                          const file_current                  = file;
+                          const filesData                     = fs.readFileSync( file_current, 'utf8' );
+                          const bContainsStyle                = /([A-Za-z]+\.style\.[A-Za-z]+)/gi.test( filesData );
+                          const bFuncFetch                    = /(fetch)\((.*)\)(\[([^\]]*)\])?/gim.test( filesData );
+                          const bVar                          = /^(?:var|)\s(\w+)\s*=\s*/gm.test( filesData );
+                          const bLookBehind                   = /\(\?<[=!].*?\)/gmi.test( filesData );
+                          const bMarkdownHtmlNode             = /new\s+NodeHtmlMarkdown/gmi.test( filesData );
+                          const bAsTFile                      = /as\s+TFile/g.test( filesData );
+                          const bAsTFolder                    = /as\s+TFolder/g.test( filesData );
+                          const bAsAny                        = /\((.*? as Any\s*)\)/gi.test( filesData );
+                          const bInnerHTML                    = /^\s?.*[a-zA-Z0-9_]+\.innerHTML*\s?.*$/gm.test( filesData );
+                          const bOuterHTML                    = /^\s?.*[a-zA-Z0-9_]+\.outerHTML*\s?.*$/gm.test( filesData );
+                      //  const bFuncConsoleLog               = /(console.log)\((.*)\)(\[([^\]]*)\])?/gim.test( filesData );
+                          const bFuncSetTimeout               = /(setTimeout)\((.*)\)(\[([^\]]*)\])?/gim.test( filesData );
+                          const bFuncFS_Chk1                  = /(require)\s?\((\s?(?:'|")fs(?:'|"))\s?\)?/gim.test( filesData );
+                          const bFuncFS_Chk2                  = /from\s+(?:'|")fs(?:'|")\s?/gim.test( filesData );
+                          const bFuncFS_ExistsSync            = /(fs.existsSync)\((.*)\)(\[([^\]]*)\])?/gm.test( filesData );
+                          const bFuncFS_MkdirSync             = /(fs.mkdirSync)\((.*)\)(\[([^\]]*)\])?/gm.test( filesData );
+                          const bFoundBadWord                 = /(?:'|").*(Settings|General).*(?:'|")?/gmi.test( filesData );
+                          const bContainsGeneric              = /(?:^|(?<= ))(MyPlugin|MyPluginSettings|SampleSettings|SampleSettingTab|SampleModal|Sample Plugin|my-plugin)(?:(?= )|$)/gim.test( filesData );
+                          const check_depGetUnpinnedLeaf      = "app.workspace.getUnpinnedLeaf"
+
+                          const bFileSkip                     = files_skipList.some( s => s.includes( file_current ) || file_current.includes( s ) );
+
+                          if ( bFileSkip == true )
+                          {
+                              files_skipped.push( file_current );
+                              continue;
+                          }
+
+                          /*
+                              Header
+                          */
+
+                          message.push        ( "\n<br />\n\n---\n\n<br />\n" );
+                          message.push        ( "### 📄 " + file_current + "\n" );
+                          message             = message.concat( warnings );
+
+                          /*
+                              Skip File
+
+                              all contents in the array below will be skipped.
+
+                              E.g:    any file which resides in the .github folder will be skipped.
+                                      any file which ends in .yml will be skipped.
+                          */
+
+                          /*
+                              ( Deprecated ) app.workspace.getUnpinnedLeaf
+
+                              @usage  : obsidian.md
+                          */
+
+                          /*
+                          if ( filesData.toLowerCase( ).includes( check_depGetUnpinnedLeaf.toLowerCase( ) ) )
+                          {
+                              addError( "This function is deprecated, use `this.app.workspace.getLeaf( false )` instead" );
+                          }
+                          */
+
+                          /*
+                              Using inline style
+                          */
+
+                          if ( bContainsStyle == true )
+                          {
+                              addError( "Avoid assigning `inline styles` via JavaScript or in HTML. Move these styles to CSS so that they are adaptable by themes and other plugins." );
+                          }
+
+                          /*
+                              Using fetch
+                          */
+
+                          if ( bFuncFetch == true )
+                          {
+                              addError( "Do not handle http data with `fetch( )`. Use the Obsidian API -> `requestUrl` method instead, which will make sure that network requests work on every platform." );
+                          }
+
+                          /*
+                              Using var
+                          */
+
+                          if ( bVar == true )
+                          {
+                              addError( "Change all instances of `var` to **const** or **let**. var has function-level scope, and leads to bugs." );
+                          }
+
+                          /*
+                              Using lookbehind
+                          */
+
+                          if ( bLookBehind == true )
+                          {
+                              addError( "Lookbehinds are not supported in iOS < 16.4" );
+                          }
+
+                          /*
+                              Using HTML Node
+                          */
+
+                          if ( bMarkdownHtmlNode == true )
+                          {
+                              addError( "Do not use `NodeHtmlMarkdown`. Use Obsidian API -> `htmlToMarkdown` instead." );
+                          }
+
+                          /*
+                              As TFile
+                          */
+
+                          if ( bAsTFile == true )
+                          {
+                              addError( "Do not cast `as TFile`, use `instanceof` instead to check if the item is actually a file / folder" );
+                          }
+
+                          /*
+                              As TFolder
+                          */
+
+                          if ( bAsTFolder == true )
+                          {
+                              addError( "Do not cast `as TFolder`, use `instanceof` instead to check if the item is actually a file / folder" );
+                          }
+
+                          /*
+                              Casting to Any
+                          */
+
+                          if ( bAsAny == true )
+                          {
+                              addError( "Do not cast to `Any`" );
+                          }
+
+                          /*
+                              innerHTML
+                          */
+
+                          if ( bInnerHTML == true )
+                          {
+                              addError( `Using \`innerHTML\` is a security risk.` );
+                          }
+
+                          /*
+                              outerHTML
+                          */
+
+                          if ( bOuterHTML == true )
+                          {
+                              addError( `Using \`outerHTML\` is a security risk.` );
+                          }
+
+                          /*
+                              setTimeout
+                          */
+
+                          if ( bFuncSetTimeout == true )
+                          {
+                              addError( "Do not utilize `setTimeout`, utilize Obsidian API -> `sleep`. E.g: `await sleep( X )`" );
+                          }
+
+                          /*
+                              require("fs")
+                          */
+
+                          if ( bFuncFS_Chk1 == true || bFuncFS_Chk2 == true  )
+                          {
+                              addError( "`fs` import only available from Node.js runtime, this will throw errors for users running on mobile" );
+                          }
+
+                          /*
+                              require("fs") / fs.existsSync
+                          */
+
+                          if ( bFuncFS_ExistsSync == true  )
+                          {
+                              addError( "`fs` import only available from Node.js runtime, this will throw errors for users running on mobile." );
+                          }
+
+                          /*
+                              require("fs") / fs.mkdirSync
+                          */
+
+                          if ( bFuncFS_MkdirSync == true  )
+                          {
+                              addError( "`fs` import only available from Node.js runtime, this will throw errors for users running on mobile." );
+                          }
+
+                          /*
+                              Generic Calls
+                          */
+
+                          if ( bContainsGeneric == true )
+                          {
+                              addError( "Rename sample classes to something that makes sense. You are not allowed to have names such as: " + error_Generic );
+                          }
+
+                          /*
+                              console.log found
+                          */
+
+                          /*
+                          if ( bFuncConsoleLog == true )
+                          {
+                              addWarning( "Avoid unnecessary logging or ensure logging only occurs in development environment." );
+                          }
+                          */
+
+                          /*
+                              Bad words found
+                          */
+
+                          if ( bFoundBadWord == true && file != "package.json" && file != "manifest.json" )
+                          {
+                              addWarning( "A restricted word was found in your code. Generic words are not allowed in strings such as: " + warn_BadWords );
+                          }
+
+                          if ( errors.length > 0 || warnings.length > 0 )
+                          {
+
+                              /*
+                                  Errors
+                              */
+
+                              if ( errors.length > 0 )
+                              {
+                                  message.push    ( "\n\n\n> [!CAUTION]\n> Errors must be fixed prior to a pull request being reviewed and accepted.<br />The file `" + file + "` contains the following errors:\n\n<br>\n\n" );
+                                  message         = message.concat( errors );
+                              }
+
+                              /*
+                                  Warnings
+                              */
+
+                              if ( warnings.length > 0 )
+                              {
+                                  if ( errors.length > 0 )
+                                  {
+                                      message.push    ( "\n<br />\n<br />\n" )
+                                  }
+                                  message.push    ( "\n\n\n> [!WARNING]\n> Warnings are suggestions that do not require fixing, but are recommended before this pull request is reviewed and accepted.<br />The file `" + file + "` contains the following warnings:\n\n<br>\n\n" );
+                                  message         = message.concat( warnings );
+                              }
+                          }
+                          else
+                          {
+                              message.push    ( "\n\n\n> [!NOTE]\n> The file `" + file + "` contains no errors\n\n<br>\n\n" );
+                          }
+                      }
+
+                      if ( files_skipped.length > 0 )
+                      {
+                          message.push        ( "\n<br />\n\n---\n<br />\n" );
+                          message.push        ( "### ❌ Skipped Files\n" );
+
+                          message.push    ( "\n\n\n> [!TIP]\n> The following file(s) have been skipped:\n\n<br>\n\n" );
+
+                          for ( const file_skipped of files_skipped )
+                          {
+                              message.push    ( "- " + file_skipped );
+                          }
+                      }
+
+                      /*
+                          footer
+                      */
+
+                      message.push    ( "\n<br />\n\n---\n<br />\n" );
+                      message.push    ( `<sup>This check was done automatically. Do <b>NOT</b> open a new PR for re-validation. Instead, to trigger this check again, make a change to your PR and wait a few minutes, or close and re-open it.</sup>` );
+
+                      /*
+                          Has Errors
+                      */
+
+                      if ( bHasError == true )
+                      {
+                          labels.push( "${{ env.LABEL_CHECK_STATUS_FAILED }}" );
+                          core.setFailed( "Pull Request Failed Autocheck: " + ct.issue.number + ": " + ct.payload.pull_request.title + "." );
+                      }
+
+                      /*
+                          No Errors
+                      */
+
+                      if ( bHasError == false )
+                      {
+
+                          /*
+                              change pr title
+                          */
+
+                          const pr_title          = `${ ct.payload.pull_request.title }`;
+                          const pr_title_append   = `PR ${ ct.issue.number }:`;
+
+                          if ( !pr_title.startsWith( pr_title_append ) && actor !=  "${{ env.BOT_NAME_RENOVATE }}" )
+                          {
+                              await github.rest.pulls.update(
+                              {
+                                  owner:        ct.repo.owner,
+                                  repo:         ct.repo.repo,
+                                  pull_number:  ct.issue.number,
+                                  title:        `${ pr_title_append } ${ ct.payload.pull_request.title }`
+                              } );
+                          }
+
+                          if ( !ct.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_CHANGES_REQ }}" ).length > 0 )
+                              labels.push( "${{ env.LABEL_CHECK_REVIEW_READY }}" );
+                      }
+
+                      /*
+                          Determine Labels
+                      */
+
+                      const bGitaction    = type_gitaction.some( s => s.includes( branch_ref ) || branch_ref.includes( s ) );
+                      const bDependency   = type_dependency.some( s => s.includes( branch_ref ) || branch_ref.includes( s ) );
+
+                      if ( actor ==  "${{ env.BOT_NAME_DEPENDABOT }}" && bDependency || actor ==  "${{ env.BOT_NAME_RENOVATE }}" && bDependency )
+                          labels.push( "${{ env.LABEL_TYPE_DEPENDENCY }}" );
+                      else if ( actor ==  "${{ env.BOT_NAME_DEPENDABOT }}" && bGitaction || actor ==  "${{ env.BOT_NAME_RENOVATE }}" && bGitaction )
+                          labels.push( "${{ env.LABEL_TYPE_GITACTION }}" );
+
+                      if ( ct.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_CHANGES_REQ }}" ).length > 0 )
+                          labels.push( "${{ env.LABEL_CHECK_CHANGES_REQ }}" );
+
+                      if (ct.payload.pull_request.labels.filter(label => label.name === "${{ env.LABEL_CHECK_REBASE_REQ }}" ).length > 0 )
+                          labels.push( "${{ env.LABEL_CHECK_REBASE_REQ }}" );
+
+                      if ( ct.payload.pull_request.labels.filter(label => label.name === "${{ env.LABEL_CHECK_SECURITY_ERR }}" ).length > 0 )
+                          labels.push( "${{ env.LABEL_CHECK_SECURITY_ERR }}" );
+
+                      if (ct.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_STATUS_CHGMADE }}" ).length > 0 )
+                          labels.push( "${{ env.LABEL_CHECK_STATUS_CHGMADE }}" );
+
+                      if ( ct.payload.pull_request.labels.filter( label => label.name === "${{ env.LABEL_CHECK_SCAN_SKIPPED }}" ).length > 0 )
+                          labels.push( "${{ env.LABEL_CHECK_SCAN_SKIPPED }}" );
+
+                      labels.push( "${{ env.LABEL_TYPE_PR }}" );
+
+                      /*
+                          Set Label
+                      */
+
+                      await github.rest.issues.setLabels(
+                      {
+                          issue_number:   ct.issue.number,
+                          owner:          ct.repo.owner,
+                          repo:           ct.repo.repo,
+                          labels,
+                      } );
+
+                      /*
+                          Create Comment
+                      */
+
+                      await github.rest.issues.createComment(
+                      {
+                          issue_number:   ct.issue.number,
+                          owner:          ct.repo.owner,
+                          repo:           ct.repo.repo,
+                          body:           message.join('\n'),
+                      } );
+
+            # #
+            #   Autoscan › Get Weekly Commits
+            # #
+
+            - name: >-
+                🕛 Get Weekly Commit List
+              id: task_autocheck_set_weekly_commit_list
+              run: |
+                  echo 'WEEKLY_COMMITS<<EOF' >> $GITHUB_ENV
+                  git log --format="[\`%h\`](${{ github.server_url }}/${{ github.repository }}/commit/%H) %s - %an" --since=7.days >> $GITHUB_ENV
+                  echo 'EOF' >> $GITHUB_ENV
+
+            # #
+            #   Autoscan › Notify Github › Success
+            # #
+
+            - name: >-
+                🔔 Send Discord Webhook Message (Success)
+              id: task_autocheck_notify_discord_success
+              uses: tsickert/discord-webhook@v7.0.0
+              if: success()
+              with:
+                  username: 'Io'
+                  avatar-url: 'https://i.imgur.com/8BVDkla.jpg'
+                  webhook-url: ${{ secrets.DISCORD_WEBHOOK_CHAN_GITHUB_TVAPP2_WORKfLOWS }}
+                  embed-title: "⚙️ ${{ github.workflow_ref }}"
+                  embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  embed-thumbnail-url: 'https://cdn.pixabay.com/photo/2022/01/30/13/33/github-6980894_960_720.png'
+                  embed-description: |
+                      ## 🎫 ᲼Issues › Scan ᲼${{ job.status == 'success' && '✅' || '❌' }}
+
+                      **${{ job.status == 'success' && '✅ Success' || '❌ Failure' }}** › Your container just ran the `Issues › Scan` workflow. Every time this workflow is ran, your list of pull requests will be scanned to determine what files have been changed. It will scan each modified file and see if the code conforms with our rules, and will then post a status report inside the pull request that is open.
+
+                      The PR will be assigned tags depending on the outcome of the code scan. If issues are detected in the code, a list of each file and issue will be posted in the PR.
+
+                      - Workflow: `${{ github.workflow }} (#${{github.run_number}})`
+                      - Runner: `${{ runner.name }}`
+                      - Triggered By: `${{ github.actor }}`
+                      - Status: `${{ job.status == 'success' && '✅ Successful' || '❌ Failed' }}`
+
+                      ## ${{ github.event.pull_request.title }} (${{ github.event.pull_request.number }})
+
+                      - Pull Request: ${{ github.event.pull_request.html_url }}
+                      - Author: https://github.com/${{ github.event.pull_request.user.login }} (${{ github.event.pull_request.author_association }})
+                      - Repo: https://github.com/${{ github.repository }}
+                      - Branch: `${{ github.head_ref }}`
+                      - Author: https://github.com/${{ github.event.pull_request.user.login }} (${{ github.event.pull_request.author_association }})
+                      - Status: `${{ github.event.pull_request.state }}`
+
+                      ### Scan Results
+                      - Added Files: ${{ steps.task_autocheck_changed_files_get.outputs.added_files_count }}
+                      - Modified Files: ${{ steps.task_autocheck_changed_files_get.outputs.all_modified_files_count }}
+                      - Renamed Files: ${{ steps.task_autocheck_changed_files_get.outputs.renamed_files_count }}
+                      - Copied Files: ${{ steps.task_autocheck_changed_files_get.outputs.copied_files_count }}
+                      - Deleted Files: ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }}
+
+                  embed-color: ${{ job.status == 'success' && '5763719' || '15418782' }}
+                  embed-footer-text: "Completed at ${{ env.NOW }} UTC"
+                  embed-timestamp: "${{ env.NOW_LONG }}"
+                  embed-author-name: "${{ github.event.pull_request.user.login }}"
+                  embed-author-url: "${{ github.event.pull_request.html_url }}"
+                  embed-author-icon-url: "${{ github.event.pull_request.user.avatar_url }}"
+
+            # #
+            #   Autoscan › Notify Github › Failure
+            # #
+
+            - name: >-
+                🔔 Send Discord Webhook Message (Failure)
+              id: task_autocheck_notify_discord_failure
+              uses: tsickert/discord-webhook@v7.0.0
+              if: failure()
+              with:
+                  username: 'Io'
+                  avatar-url: 'https://i.imgur.com/8BVDkla.jpg'
+                  webhook-url: ${{ secrets.DISCORD_WEBHOOK_CHAN_GITHUB_TVAPP2_WORKfLOWS }}
+                  embed-title: "⚙️ ${{ github.workflow_ref }}"
+                  embed-url: "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  embed-thumbnail-url: 'https://cdn.pixabay.com/photo/2022/01/30/13/33/github-6980894_960_720.png'
+                  embed-description: |
+                      ## 🎫 ᲼Issues › Scan ᲼${{ job.status == 'success' && '✅' || '❌' }}
+
+                      **${{ job.status == 'success' && '✅ Success' || '❌ Failure' }}** › Your container just ran the `Issues › Scan` workflow. Every time this workflow is ran, your list of pull requests will be scanned to determine what files have been changed. It will scan each modified file and see if the code conforms with our rules, and will then post a status report inside the pull request that is open.
+
+                      The PR will be assigned tags depending on the outcome of the code scan. If issues are detected in the code, a list of each file and issue will be posted in the PR.
+
+                      - Workflow: `${{ github.workflow }} (#${{github.run_number}})`
+                      - Runner: `${{ runner.name }}`
+                      - Triggered By: `${{ github.actor }}`
+                      - Status: `${{ job.status == 'success' && '✅ Successful' || '❌ Failed' }}`
+
+                      ## ${{ github.event.pull_request.title }} (${{ github.event.pull_request.number }})
+
+                      - Pull Request: ${{ github.event.pull_request.html_url }}
+                      - Author: https://github.com/${{ github.event.pull_request.user.login }} (${{ github.event.pull_request.author_association }})
+                      - Repo: https://github.com/${{ github.repository }}
+                      - Branch: `${{ github.head_ref }}`
+                      - Author: https://github.com/${{ github.event.pull_request.user.login }} (${{ github.event.pull_request.author_association }})
+                      - Status: `${{ github.event.pull_request.state }}`
+
+                      ### Scan Results
+                      - Added Files: ${{ steps.task_autocheck_changed_files_get.outputs.added_files_count }}
+                      - Modified Files: ${{ steps.task_autocheck_changed_files_get.outputs.all_modified_files_count }}
+                      - Renamed Files: ${{ steps.task_autocheck_changed_files_get.outputs.renamed_files_count }}
+                      - Copied Files: ${{ steps.task_autocheck_changed_files_get.outputs.copied_files_count }}
+                      - Deleted Files: ${{ steps.task_autocheck_changed_files_get.outputs.deleted_files_count }}
+
+                  embed-color: ${{ job.status == 'success' && '5763719' || '15418782' }}
+                  embed-footer-text: "Completed at ${{ env.NOW }} UTC"
+                  embed-timestamp: "${{ env.NOW_LONG }}"
+                  embed-author-name: "${{ github.event.pull_request.user.login }}"
+                  embed-author-url: "${{ github.event.pull_request.html_url }}"
+                  embed-author-icon-url: "${{ github.event.pull_request.user.avatar_url }}"
