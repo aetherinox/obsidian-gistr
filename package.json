@@ -96,7 +96,7 @@
     },
     "dependencies": {
         "@aetherinox/noxkit": "https://github.com/Aetherinox/noxkit",
-        "@octokit/rest": "^20.1.0",
+        "@octokit/rest": "^22.0.0",
         "@simonwep/pickr": "1.9.0",
         "colortranslator": "^4.1.0",
         "front-matter": "^4.0.2",
