@@ -75,7 +75,7 @@
         "@types/chrome": "^0.0.268",
         "@types/node": "^20.14.10",
         "@types/semver": "^7.5.8",
-        "@types/uuid": "^9.0.8",
+        "@types/uuid": "^10.0.0",
         "typescript-eslint": "^7.14.0",
         "@typescript-eslint/parser": "^7.16.0",
         "@typescript-eslint/eslint-plugin": "^7.16.0",
@@ -101,7 +101,7 @@
         "colortranslator": "^4.1.0",
         "front-matter": "^4.0.2",
         "semver": "^7.6.0",
-        "uuid": "^9.0.1",
+        "uuid": "^10.0.0",
         "yaml": "^2.4.5"
     },
     "files": [
