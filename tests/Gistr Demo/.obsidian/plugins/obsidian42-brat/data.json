@@ -1,5 +1,7 @@
 {
   "pluginList": [
+    "Benature/obsidian-plugin-reloader",
+    "phibr0/obsidian-commander",
     "Aetherinox/obsidian-gistr"
   ],
   "pluginSubListFrozenVersion": [],

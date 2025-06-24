@@ -1,0 +1,53 @@
+{
+  "confirmDeletion": true,
+  "showAddCommand": true,
+  "debug": false,
+  "editorMenu": [
+    {
+      "id": "plugin-reloader:gistr",
+      "icon": "github",
+      "name": "Plugin Reloader: Reload Gistr",
+      "mode": "any",
+      "color": "#b1fd0d"
+    }
+  ],
+  "fileMenu": [],
+  "leftRibbon": [
+    {
+      "id": "plugin-reloader:gistr",
+      "icon": "github",
+      "name": "Plugin Reloader: Reload Gistr",
+      "mode": "any",
+      "color": "#f0e033"
+    }
+  ],
+  "rightRibbon": [],
+  "titleBar": [],
+  "statusBar": [],
+  "pageHeader": [
+    {
+      "id": "plugin-reloader:gistr",
+      "icon": "github",
+      "name": "Plugin Reloader: Reload Gistr",
+      "mode": "any",
+      "color": "#d8f40b"
+    }
+  ],
+  "macros": [],
+  "explorer": [],
+  "hide": {
+    "statusbar": [],
+    "leftRibbon": []
+  },
+  "spacing": 8,
+  "advancedToolbar": {
+    "rowHeight": 48,
+    "rowCount": 1,
+    "spacing": 0,
+    "buttonWidth": 48,
+    "columnLayout": false,
+    "mappedIcons": [],
+    "tooltips": false,
+    "heightOffset": 0
+  }
+}
