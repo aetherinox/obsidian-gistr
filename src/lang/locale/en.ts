@@ -166,7 +166,7 @@ export default
     cfg_tab_su_ogdocs_url:                      'https://github.com/thomiceli/opengist/blob/master/docs/index.md',
     cfg_tab_su_ogdocs_btn:                      'View',
     cfg_tab_su_ogdemo_label:                    'OpenGist: demo',
-    cfg_tab_su_ogdemo_url:                      'https://opengist.thomice.li/all',
+    cfg_tab_su_ogdemo_url:                      'https://demo.opengist.io',
     cfg_tab_su_ogdemo_btn:                      'View',
     cfg_tab_su_gist_label:                      'Github gist',
     cfg_tab_su_gist_url:                        'https://gist.github.com/',
