@@ -127,7 +127,7 @@ jobs:
             - name: "🪪 Run Build"
               id: task_release_npm_build
               run: |
-                  npm ci
+                  npm install
                   npm run build
 
             # ---------------------------------------------------------------------------------------
