@@ -46,7 +46,7 @@ export function RemoveLeafButtonsAll( )
 {
     const activeLeaves: HTMLElement[] = []
 
-    app.workspace.iterateAllLeaves( ( leaf ) =>
+    this.app.workspace.iterateAllLeaves( ( leaf: { view: { containerEl: HTMLElement } } ) =>
     {
         activeLeaves.push( leaf.view.containerEl )
     } )
