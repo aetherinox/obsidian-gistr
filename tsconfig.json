@@ -23,7 +23,9 @@
     ]
   },
   "include": [
-    "**/*.ts"
+    "**/*.ts",
+    "**/*.d.ts",
+    "**/types.d.ts"
   ],
   "exclude": [".vscode"]
 }
