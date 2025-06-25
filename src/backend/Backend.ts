@@ -400,12 +400,22 @@ css: |
             background-color:       ${ css_og_sb_color };
         }
 
+        .dark:bg-gray-900
+        {
+            background-color:       ${ css_og_bg_color } !important;
+        }
+
+        .opengist-embed .dark\:bg-gray-900:is(.dark *)
+        {
+            background-color:       ${ css_og_bg_color } !important;
+        }
+
         .opengist-embed .code
         {
             padding-top:            ${ this.settings.blk_pad_t }px;
             padding-bottom:         ${ this.settings.blk_pad_b }px;
             border-top:             ${ css_og_bg_header_bor };
-            background-color:       ${ css_og_bg_color };
+            background-color:       ${ css_og_bg_color } !important;
             width:                  fit-content;
             margin-top:             -1px;
             background:             ${ css_og_bg };
