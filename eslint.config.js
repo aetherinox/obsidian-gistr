@@ -28,7 +28,7 @@ module.exports = [
             ...globals.browser,
         },
         parserOptions: {
-            project: ['tsconfig.json'],
+            project: path.join(__dirname, "tsconfig.eslint.json")
         },
     },
     rules: {
