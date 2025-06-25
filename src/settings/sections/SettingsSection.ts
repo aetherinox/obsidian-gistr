@@ -601,13 +601,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_og_cb_light_name' ) )
                 .setDesc( cfg_tab_og_cb_light_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'og_clr_bg_light'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'og_clr_bg_light'
+                    )
+                } )
 
             /*
                 Background color (Dark)
@@ -624,13 +624,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_og_cb_dark_name' ) )
                 .setDesc( cfg_tab_og_cb_dark_desc )
                     .then( ( setting ) =>
-{
- this.new_ColorPicker
-                    (
-                        this.app, this.plugin, elm, setting,
-                        'og_clr_bg_dark'
-                )
-} )
+                    {
+                        this.new_ColorPicker
+                        (
+                                this.app, this.plugin, elm, setting,
+                                'og_clr_bg_dark'
+                        )
+                    } )
 
             /*
                 Text color (Light)
@@ -647,13 +647,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_og_tx_light_name' ) )
                 .setDesc( cfg_tab_og_tx_light_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'og_clr_tx_light'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'og_clr_tx_light'
+                    )
+                } )
 
             /*
                 Text color (Dark)
@@ -670,13 +670,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_og_tx_dark_name' ) )
                 .setDesc( cfg_tab_og_tx_dark_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'og_clr_tx_dark'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'og_clr_tx_dark'
+                    )
+                } )
 
             /*
                 Scrollbar Track Color (Light)
@@ -693,13 +693,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_og_sb_light_name' ) )
                 .setDesc( cfg_tab_og_sb_light_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'og_clr_sb_light'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'og_clr_sb_light'
+                    )
+                } )
 
             /*
                 Scrollbar Track Color (Dark)
@@ -716,13 +716,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_og_sb_dark_name' ) )
                 .setDesc( cfg_tab_og_sb_dark_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'og_clr_sb_dark'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'og_clr_sb_dark'
+                    )
+                } )
 
             /*
                 Codeblock Opacity
@@ -1300,13 +1300,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_gh_cb_light_name' ) )
                 .setDesc( cfg_tab_gh_cb_light_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'gh_clr_bg_light'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'gh_clr_bg_light'
+                    )
+                } )
 
             /*
                 Background color (Dark)
@@ -1323,13 +1323,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_gh_cb_dark_name' ) )
                 .setDesc( cfg_tab_gh_cb_dark_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'gh_clr_bg_dark'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'gh_clr_bg_dark'
+                    )
+                } )
 
             /*
                 Text color (Light)
@@ -1346,13 +1346,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_gh_tx_light_name' ) )
                 .setDesc( cfg_tab_gh_tx_light_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'gh_clr_tx_light'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'gh_clr_tx_light'
+                    )
+                } )
 
             /*
                 Text color (Dark)
@@ -1369,13 +1369,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_gh_tx_dark_name' ) )
                 .setDesc( cfg_tab_gh_tx_dark_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'gh_clr_tx_dark'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'gh_clr_tx_dark'
+                    )
+                } )
 
 
             /*
@@ -1393,13 +1393,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_gh_sb_light_name' ) )
                 .setDesc( cfg_tab_gh_sb_light_name )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'gh_clr_sb_light'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'gh_clr_sb_light'
+                    )
+                } )
 
             /*
                 Scrollbar Track Color (Dark)
@@ -1416,13 +1416,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_gh_sb_dark_name' ) )
                 .setDesc( cfg_tab_gh_sb_dark_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'gh_clr_sb_dark'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'gh_clr_sb_dark'
+                    )
+                } )
 
             /*
                 Codeblock Opacity
@@ -1900,13 +1900,13 @@ export class SettingsSection extends PluginSettingTab
                 .setName( lng( 'cfg_tab_sy_list_icon_name' ) )
                 .setDesc( cfg_tab_sy_list_icon_desc )
                 .then( ( setting ) =>
-{
- this.new_ColorPicker
-                (
-                    this.app, this.plugin, elm, setting,
-                    'sy_clr_lst_icon'
-                )
-} )
+                {
+                    this.new_ColorPicker
+                    (
+                        this.app, this.plugin, elm, setting,
+                        'sy_clr_lst_icon'
+                    )
+                } )
 
             /*
                 Tab Footer Spacer
